@@ -1,0 +1,200 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: My VPC Configuration
+
+Parameters:
+  MyIPAddress:
+    Type: String
+    Description: This must be a check your pc valid Public IP address.
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/32
+    ConstraintDescription: must be a valid IP address of the form x.x.x.x/32
+    Default: "0.0.0.0/32"
+
+  KeyPairName:
+    Type: String
+    # Default: new-key-pair
+    Description: The key pair used to access the instance.
+
+  VpcCidr:
+    Type: String
+    Description: VPC CIDR
+    Default: "10.1.0.0/16"  # VPC CIDR 값으로 실제 환경에 맞는 값을 사용하세요.
+
+  AvailabilityZoneA:
+    Type: String
+    Description: AvailabilityZone A
+    Default: "us-west-2a"  # 사용 중인 리전으로 바꿔야 합니다.
+
+  AvailabilityZoneC:
+    Type: String
+    Description: AvailabilityZone C
+    Default: "us-west-2c"
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: my-vpc-16  # VPC의 이름을 바꿀 수 있습니다.
+  
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.1.1.0/26
+      AvailabilityZone: !Ref AvailabilityZoneA
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: my-public-subnet-a-16
+
+  PublicSubnetC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.1.1.64/26
+      AvailabilityZone: !Ref AvailabilityZoneC
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: my-public-subnet-c-16
+
+  PrivateSubnetAppA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.1.1.128/27
+      AvailabilityZone: !Ref AvailabilityZoneA
+      Tags:
+        - Key: Name
+          Value: my-private-subnet-app-a-16
+
+  PrivateSubnetAppC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.1.1.160/27
+      AvailabilityZone: !Ref AvailabilityZoneC
+      Tags:
+        - Key: Name
+          Value: my-private-subnet-app-c-16
+
+  PrivateSubnetDbA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.1.1.192/27
+      AvailabilityZone: !Ref AvailabilityZoneA
+      Tags:
+        - Key: Name
+          Value: my-private-subnet-db-a-16
+
+  PrivateSubnetDbC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.1.1.224/27
+      AvailabilityZone: !Ref AvailabilityZoneC
+      Tags:
+        - Key: Name
+          Value: my-private-subnet-db-c-16
+
+  IGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: my-igw-16
+
+  Attachigw:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref IGW
+      VpcId: !Ref VPC
+  
+  EIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Tags:
+        - Key: Name
+          Value: my-eip-16
+
+  NGW:
+    Type: AWS::EC2::NatGateway
+    DependsOn: Attachigw
+    Properties:
+      AllocationId: !GetAtt EIP.AllocationId
+      SubnetId: !Ref PublicSubnetA
+      Tags:
+        - Key: Name
+          Value: my-ngw-16
+
+  PublicRT:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: my-public-rt-16
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: Attachigw
+    Properties:
+      RouteTableId: !Ref PublicRT
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref IGW
+
+  PublicSubnetARTAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRT
+      SubnetId: !Ref PublicSubnetA
+
+  PublicSubnetCRTAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRT
+      SubnetId: !Ref PublicSubnetC
+
+  PrivateRT:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: my-private-rt-16
+
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    DependsOn: Attachigw
+    Properties:
+      RouteTableId: !Ref PrivateRT
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NGW
+
+  PrivateSubnetAppARTAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRT
+      SubnetId: !Ref PrivateSubnetAppA
+
+  PrivateSubnetAppCRTAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRT
+      SubnetId: !Ref PrivateSubnetAppC
+
+  PrivateSubnetDbARTAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRT
+      SubnetId: !Ref PrivateSubnetDbA
+      
+  PrivateSubnetDbCRTAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRT
+      SubnetId: !Ref PrivateSubnetDbC
