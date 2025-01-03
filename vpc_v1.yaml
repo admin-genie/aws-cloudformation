@@ -37,7 +37,7 @@ Resources:
       EnableDnsHostnames: true
       Tags:
         - Key: Name
-          Value: my-vpc-16  # VPC의 이름을 바꿀 수 있습니다.
+          Value: my-vpc-16  # VPC 이름을 바꿀 수 있습니다.
   
   PublicSubnetA:
     Type: AWS::EC2::Subnet
